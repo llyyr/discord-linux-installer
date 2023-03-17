@@ -1,0 +1,43 @@
+#!/bin/sh
+
+DATADIR="/usr/share"
+BINDIR="/usr/bin"
+FLAGS="--disable-smooth-scrolling --ozone-platform-hint=auto --enable-experimental-web-platform-features"
+
+if wget --spider "https://discordapp.com/api/download/canary?platform=linux&format=tar.gz" > /dev/null 2>&1; then
+    echo "Installing Discord Canary to '/opt/DiscordCanary'..."
+    
+    # download Discord Canary tar
+    wget -nv "https://discordapp.com/api/download/canary?platform=linux&format=tar.gz" -O /tmp/discord-canary-install.tar.gz || \
+    { echo "Failed to download Discord Canary "; exit 2; }
+    
+    if pgrep DiscordCanary ; then
+    	pkill DiscordCanary
+    	sleep 1
+    	pkill -9 DiscordCanary
+    fi
+    
+    tar xf /tmp/discord-canary-install.tar.gz --overwrite -C /opt || { echo "Failed to extract Discord Canary tar"; exit 2; }
+    rm -f /tmp/discord-canary-install.tar.gz
+    
+    # fix Exec line in .desktop file
+    sed -i "s|^Exec=.*|Exec=discord-canary $FLAGS|g" /opt/DiscordCanary/discord-canary.desktop || { echo "Failed to fix discord-canary.desktop"; exit 2; }
+    
+    # move .desktop file to /usr/share/applications/discord-canary.desktop
+    mv /opt/DiscordCanary/discord-canary.desktop "$DATADIR"/applications/discord-canary.desktop || { echo "Failed to move discord-canary.desktop"; exit 2; }
+    
+    # copy icon to /usr/share/icons/hicolor/256x256/apps/discord-canary.png
+    cp /opt/DiscordCanary/discord.png "$DATADIR"/icons/hicolor/256x256/apps/discord-canary.png || { echo "Failed to copy discord-canary.png"; exit 2; }
+    
+    # create symlink for /opt/DiscordCanary/DiscordCanary binary to /usr/bin/discord-canary
+    ln -sf /opt/DiscordCanary/DiscordCanary "$BINDIR"/discord-canary || { echo "Failed to create symlink to "$BINDIR"/discord-canary"; exit 2; }
+    chmod +x "$BINDIR"/discord-canary || { echo "Failed to make discord-canary executable"; exit 2; }
+    
+    # run included postinst.sh
+    chmod +x /opt/DiscordCanary/postinst.sh || { echo "Failed to make postinst.sh executable"; exit 2; }
+    /opt/DiscordCanary/postinst.sh || { echo "Failed to run postinst.sh"; exit 2; }
+    echo "Discord Canary installed to '/opt/DiscordCanary'"
+else
+    echo "Could not connect to download server"
+    exit 0
+fi

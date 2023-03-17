@@ -1,0 +1,43 @@
+#!/bin/sh
+
+DATADIR="/usr/share"
+BINDIR="/usr/bin"
+FLAGS="--disable-smooth-scrolling --ozone-platform-hint=auto --enable-experimental-web-platform-features"
+
+if wget --spider "https://discordapp.com/api/download/ptb?platform=linux&format=tar.gz" > /dev/null 2>&1; then
+    echo "Installing Discord PTB to '/opt/DiscordPTB'..."
+    
+    # download Discord PTB tar
+    wget -nv "https://discordapp.com/api/download/ptb?platform=linux&format=tar.gz" -O /tmp/discord-ptb-install.tar.gz || \
+    { echo "Failed to download Discord PTB "; exit 2; }
+    
+    if pgrep DiscordPTB ; then
+    	pkill DiscordPTB
+    	sleep 1
+    	pkill -9 DiscordPTB
+    fi
+    
+    tar xf /tmp/discord-ptb-install.tar.gz --overwrite -C /opt || { echo "Failed to extract Discord PTB tar"; exit 2; }
+    rm -f /tmp/discord-ptb-install.tar.gz
+    
+    # fix Exec line in .desktop file
+    sed -i "s|^Exec=.*|Exec=discord-ptb $FLAGS|g" /opt/DiscordPTB/discord-ptb.desktop || { echo "Failed to fix discord-ptb.desktop"; exit 2; }
+    
+    # move .desktop file to /usr/share/applications/discord-ptb.desktop
+    mv /opt/DiscordPTB/discord-ptb.desktop "$DATADIR"/applications/discord-ptb.desktop || { echo "Failed to move discord-ptb.desktop"; exit 2; }
+    
+    # copy icon to /usr/share/icons/hicolor/256x256/apps/discord-ptb.png
+    cp /opt/DiscordPTB/discord.png "$DATADIR"/icons/hicolor/256x256/apps/discord-ptb.png || { echo "Failed to copy discord-ptb.png"; exit 2; }
+    
+    # create symlink for /opt/DiscordPTB/DiscordPTB binary to /usr/bin/discord-ptb
+    ln -sf /opt/DiscordPTB/DiscordPTB "$BINDIR"/discord-ptb || { echo "Failed to create symlink to "$BINDIR"/discord-ptb"; exit 2; }
+    chmod +x "$BINDIR"/discord-ptb || { echo "Failed to make discord-ptb executable"; exit 2; }
+    
+    # run included postinst.sh
+    chmod +x /opt/DiscordPTB/postinst.sh || { echo "Failed to make postinst.sh executable"; exit 2; }
+    /opt/DiscordPTB/postinst.sh || { echo "Failed to run postinst.sh"; exit 2; }
+    echo "Discord PTB installed to '/opt/DiscordPTB'"
+else
+    echo "Could not connect to download server"
+    exit 0
+fi

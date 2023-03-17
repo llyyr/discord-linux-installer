@@ -1,0 +1,43 @@
+#!/bin/sh
+
+DATADIR="/usr/share"
+BINDIR="/usr/bin"
+FLAGS="--disable-smooth-scrolling --ozone-platform-hint=auto --enable-experimental-web-platform-features"
+
+if wget --spider "https://discordapp.com/api/download/stable?platform=linux&format=tar.gz" > /dev/null 2>&1; then
+    echo "Installing Discord to '/opt/Discord'..."
+
+    # download Discord tar
+    wget -nv "https://discordapp.com/api/download/stable?platform=linux&format=tar.gz" -O /tmp/discord-stable-install.tar.gz || \
+    { echo "Failed to download Discord"; exit 2; }
+    
+    if pgrep Discord ; then
+    	pkill Discord
+    	sleep 1
+    	pkill -9 Discord
+    fi
+
+    tar xf /tmp/discord-stable-install.tar.gz --overwrite -C /opt || { echo "Failed to extract Discord tar"; exit 2; }
+    rm -f /tmp/discord-stable-install.tar.gz
+    
+    # fix Exec line in .desktop file
+    sed -i "s|^Exec=.*|Exec=discord $FLAGS|g" /opt/Discord/discord.desktop || { echo "Failed to fix discord.desktop"; exit 2; }
+
+    # move .desktop file to /usr/share/applications/discord.desktop
+    mv /opt/Discord/discord.desktop "$DATADIR"/applications/discord.desktop || { echo "Failed to move discord.desktop"; exit 2; }
+
+    # copy icon to /usr/share/icons/hicolor/256x256/apps/discord.png
+    cp /opt/Discord/discord.png "$DATADIR"/icons/hicolor/256x256/apps/discord.png || { echo "Failed to copy discord.png"; exit 2; }
+
+    # create symlink for /opt/Discord/Discord binary to /usr/bin/discord
+    ln -sf /opt/Discord/Discord "$BINDIR"/discord || { echo "Failed to create symlink to "$BINDIR"/discord"; exit 2; }
+    chmod +x "$BINDIR"/discord || { echo "Failed to make discord executable"; exit 2; }
+
+    # run included postinst.sh
+    chmod +x /opt/Discord/postinst.sh || { echo "Failed to make postinst.sh executable"; exit 2; }
+    /opt/Discord/postinst.sh || { echo "Failed to run postinst.sh"; exit 2; }
+    echo "Discord installed to '/opt/Discord'"
+else
+    echo "Could not connect to download server"
+    exit 0
+fi
